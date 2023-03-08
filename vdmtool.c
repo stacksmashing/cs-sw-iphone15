@@ -43,14 +43,19 @@ static struct vdm_context vdm_contexts[CONFIG_USB_PD_PORT_COUNT];
 #define HIGH true
 #define LOW false
 
-#define dprintf(cxt, ...)	do {					\
-		if (cxt->verbose)					\
-			printf(__VA_ARGS__);				\
-		} while(0)
+#define cprintf_cont(cxt, str, ...)	do {				\
+		__printf(PORT(cxt), str, ##__VA_ARGS__);		\
+	} while(0)
 
 #define cprintf(cxt, str, ...)	do {					\
-		printf("P%ld: " str, PORT(cxt), ##__VA_ARGS__);		\
+		cprintf_cont(cxt,					\
+			     "P%ld: " str, PORT(cxt), ##__VA_ARGS__);	\
 	} while(0)
+
+#define dprintf(cxt, ...)	do {					\
+		if (cxt->verbose)					\
+			cprintf(cxt, ##__VA_ARGS__);			\
+		} while(0)
 
 #define STATE(cxt, x)	do {						\
 		cxt->state = STATE_##x;					\
@@ -176,36 +181,36 @@ static void send_source_cap(struct vdm_context *cxt)
 	cxt->source_cap_timer = 0;
 }
 
-static void dump_msg(enum fusb302_rxfifo_tokens sop, int16_t hdr, uint32_t * msg)
+static void dump_msg(struct vdm_context *cxt,
+		     enum fusb302_rxfifo_tokens sop, int16_t hdr, uint32_t * msg)
 {
 	int16_t len = PD_HEADER_CNT(hdr);
 	switch (sop) {
 	case fusb302_TKN_SOP:
-		printf("RX SOP (");
+		cprintf_cont(cxt, "RX SOP (");
 		break;
 	case fusb302_TKN_SOP1:
-		printf("RX SOP' (");
+		cprintf_cont(cxt, "RX SOP' (");
 		break;
 	case fusb302_TKN_SOP2:
-		printf("RX SOP\" (");
+		cprintf_cont(cxt, "RX SOP\" (");
 		break;
 	case fusb302_TKN_SOP1DB:
-		printf("RX SOP'DEBUG (");
+		cprintf_cont(cxt, "RX SOP'DEBUG (");
 		break;
 	case fusb302_TKN_SOP2DB:
-		printf("RX SOP\"DEBUG (");
+		cprintf_cont(cxt, "RX SOP\"DEBUG (");
 		break;
 	default:
-		printf("RX ? (");
+		cprintf_cont(cxt, "RX ? (");
 		break;
 	}
 
-	printf("%d) [%x]", len, hdr);
-	for (int16_t i = 0; i < PD_HEADER_CNT(hdr); i++) {
-		printf(" ");
-		printf("%x", msg[i]);
-	}
-	printf("\n");
+	cprintf_cont(cxt, "%d) [%x]", len, hdr);
+	for (int16_t i = 0; i < PD_HEADER_CNT(hdr); i++)
+		cprintf_cont(cxt, " %x", msg[i]);
+
+	cprintf_cont(cxt, "\n");
 }
 
 static void handle_discover_identity(struct vdm_context *cxt)
@@ -269,7 +274,7 @@ static void handle_vdm(struct vdm_context *cxt, enum fusb302_rxfifo_tokens sop,
 		break;
 	default:
 		cprintf(cxt, "<VDM ");
-		dump_msg(sop, hdr, msg);
+		dump_msg(cxt, sop, hdr, msg);
 		break;
 	}
 }
@@ -295,7 +300,7 @@ static void handle_msg(struct vdm_context *cxt, enum fusb302_rxfifo_tokens sop,
 			break;
 		default:
 			cprintf(cxt, "<UNK DATA ");
-			dump_msg(sop, hdr, msg);
+			dump_msg(cxt, sop, hdr, msg);
 			break;
 		}
 	} else {
@@ -323,7 +328,7 @@ static void handle_msg(struct vdm_context *cxt, enum fusb302_rxfifo_tokens sop,
 			break;
 		default:
 			cprintf(cxt, "<UNK CTL ");
-			dump_msg(sop, hdr, msg);
+			dump_msg(cxt, sop, hdr, msg);
 			break;
 		}
 	}
@@ -370,11 +375,11 @@ static void handle_irq(struct vdm_context *cxt)
 	if (irq & TCPC_REG_INTERRUPT_VBUSOK) {
 		cprintf(cxt, "IRQ: VBUSOK (VBUS=");
 		if (fusb302_tcpm_get_vbus_level(PORT(cxt))) {
-			cprintf(cxt, "ON)\n");
+			cprintf_cont(cxt, "ON)\n");
 			send_source_cap(cxt);
 			debug_poke(cxt);
 		} else {
-			cprintf(cxt, "OFF)\n");
+			cprintf_cont(cxt, "OFF)\n");
 			evt_disconnect(cxt);
 		}
 	}
@@ -415,7 +420,7 @@ void vdm_send_reboot(struct vdm_context *cxt)
 	uint32_t vdm[] = { 0x5ac8012, 0x0105, 0x8000UL<<16 };
 	int hdr = PD_HEADER(PD_DATA_VENDOR_DEF, 1, 1, 0, sizeof(vdm) / 4, PD_REV20, 0);
 	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP_DEBUG_PRIME_PRIME, hdr, vdm);
-	cprintf(cxt, ">VDM SET ACTION reboot\n\r");
+	cprintf(cxt, ">VDM SET ACTION reboot\n");
 }
 
 static void serial_out(struct vdm_context *cxt, char c)
@@ -423,28 +428,30 @@ static void serial_out(struct vdm_context *cxt, char c)
 	uart_putc_raw(UART(cxt), c);
 }
 
-static void help(void)
+static void help(struct vdm_context *cxt)
 {
-	printf("^_    Escape character\n"
-	       "^_ ^_ Raw ^_\n"
-	       "^_ ^@ Send break\n"
-	       "^_ !  DUT reset\n"
-	       "^_ ^R Central Scrutinizer reset\n"
-	       "^_ ^^ Central Scrutinizer reset to programming mode\n"
-	       "^_ ^D Toggle debug\n"
-	       "^_ ^M Send empty debug VDM\n"
-	       "^_ ?  This message\n");
+	cprintf(cxt, "Current port\n"
+		"^_    Escape character\n"
+		"^_ ^_ Raw ^_\n"
+		"^_ ^@ Send break\n"
+		"^_ !  DUT reset\n"
+		"^_ ^R Central Scrutinizer reset\n"
+		"^_ ^^ Central Scrutinizer reset to programming mode\n"
+		"^_ ^D Toggle debug\n"
+		"^_ ^M Send empty debug VDM\n"
+		"^_ ?  This message\n");
 	for (int i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++)
-		cprintf(&vdm_contexts[i], "%s\n",
+		cprintf(cxt, "Port %d: %s\n",
+			PORT(&vdm_contexts[i]),
 			vdm_contexts[i].hw ? "present" : "absent");
 }
 
 static bool serial_handler(struct vdm_context *cxt)
 {
 	bool uart_active = false;
-	int c;
+	int32_t c;
 
-	while ((c = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
+	while ((c = usb_rx_byte(PORT(cxt))) != -1) {
 		uart_active = true;
 
 		if ((!cxt->vdm_escape && c != 0x1f)) {
@@ -482,7 +489,7 @@ static bool serial_handler(struct vdm_context *cxt)
 			debug_poke(cxt);
 			break;
 		case '?':
-			help();
+			help(cxt);
 			break;
 		}
 
@@ -528,8 +535,7 @@ static void state_machine(struct vdm_context *cxt)
 		break;
 	}
 	default:{
-		cprintf(cxt, "Invalid state %d", cxt->state);
-		cprintf(cxt, "\n");
+		cprintf(cxt, "Invalid state %d\n", cxt->state);
 	}
 	}
 	if (cxt->state != STATE_DISCONNECTED) {
@@ -649,11 +655,23 @@ void m1_pd_bmc_run(void)
 		bool busy = false;
 
 		for (i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++) {
-			if (vdm_contexts[i].hw)
-				busy |= m1_pd_bmc_run_one(&vdm_contexts[i]);
+			if (!vdm_contexts[i].hw)
+				continue;
+
+			busy |= m1_pd_bmc_run_one(&vdm_contexts[i]);
+			irq_set_enabled(vdm_contexts[i].hw->uart_irq, false);
+		}
+
+		tud_task();
+
+		for (i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++) {
+			if (!vdm_contexts[i].hw)
+				continue;
+
+			irq_set_enabled(vdm_contexts[i].hw->uart_irq, true);
 		}
 
 		if (!busy)
-			__wfi();
+			__wfe();
 	}
 }

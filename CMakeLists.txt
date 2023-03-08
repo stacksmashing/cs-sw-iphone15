@@ -18,6 +18,11 @@ add_executable(${PROJECT_NAME}
     FUSB302.c
     tcpm_driver.c
     vdmtool.c
+    usb_descriptors.c
+)
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_CURRENT_LIST_DIR}
 )
 
 # Create map/bin/hex/uf2 files
@@ -27,9 +32,12 @@ pico_add_extra_outputs(${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME} 
     pico_stdlib
     hardware_i2c
+    pico_unique_id
+    tinyusb_board
+    tinyusb_device
 )
 
 # Enable usb output, disable uart output
-pico_enable_stdio_usb(${PROJECT_NAME} 1)
+pico_enable_stdio_usb(${PROJECT_NAME} 0)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
 #pico_set_binary_type(${PROJECT_NAME} no_flash)
