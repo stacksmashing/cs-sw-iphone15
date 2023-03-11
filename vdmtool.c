@@ -647,6 +647,12 @@ static bool m1_pd_bmc_run_one(struct vdm_context *cxt)
 	return serial_handler(cxt) || cxt->pending;
 }
 
+#define for_each_cxt(___c)						\
+	for (struct vdm_context *___c = &vdm_contexts[0];		\
+	     (___c - vdm_contexts) < CONFIG_USB_PD_PORT_COUNT;		\
+	     ___c++)							\
+		if (___c->hw)
+
 void m1_pd_bmc_run(void)
 {
 	int i;
@@ -654,24 +660,23 @@ void m1_pd_bmc_run(void)
 	while (1) {
 		bool busy = false;
 
-		for (i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++) {
-			if (!vdm_contexts[i].hw)
-				continue;
-
-			busy |= m1_pd_bmc_run_one(&vdm_contexts[i]);
-			irq_set_enabled(vdm_contexts[i].hw->uart_irq, false);
+		for_each_cxt(cxt) {
+			gpio_put(PIN(cxt, LED_G), HIGH);
+			busy |= m1_pd_bmc_run_one(cxt);
+			irq_set_enabled(cxt->hw->uart_irq, false);
 		}
 
 		tud_task();
 
-		for (i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++) {
-			if (!vdm_contexts[i].hw)
-				continue;
+		for_each_cxt(cxt)
+			irq_set_enabled(cxt->hw->uart_irq, true);
 
-			irq_set_enabled(vdm_contexts[i].hw->uart_irq, true);
-		}
+		if (busy)
+			continue;
 
-		if (!busy)
-			__wfe();
+		for_each_cxt(cxt)
+			gpio_put(PIN(cxt, LED_G), LOW);
+
+		__wfe();
 	}
 }
