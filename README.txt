@@ -99,6 +99,7 @@ Models I know of:
 - M1 mini 2020: USB-C port closest to the power supply
 - M1 Ultra 2022: USB-C port closest to the Ethernet port
 - M2 MacBook Air 2022: USB-C port closest to the MagSafe port
+- M2 Pro mini 2023: USB-C port closest to the Ethernet port (Oliver)
 
 No idea about other machines.
 
