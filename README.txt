@@ -4,6 +4,11 @@ So you have built (or otherwise obtained) a device labelled "Central
 Scrutinizer" which allows you interact with the serial port of a M1/M2
 and reboot it.
 
+Otherwise, you can look at
+https://git.kernel.org/pub/scm/linux/kernel/git/maz/cs-hw.git
+for the hardware side of the project. Everything in this file
+assumes that the board is assembled and functionnal.
+
 This file describe how to build the software and flash it onto the
 Raspberry-Pi Pico that controls the adapter. As for the HW, the SW
 started its life as m1-ubmc, but let's be clear that its name really
@@ -29,12 +34,11 @@ to use anything else.
 
 ** Install the pico-sdk:
 
-I've mostly used version 1.4 of the SDK, but 1.5 seems to work
-too. YMMV.
+I've used versions 1.4 and 1.5 of the SDK. YMMV.
 
   git clone -b master https://github.com/raspberrypi/pico-sdk.git
 
-  export PICO_SDK_PATH=/the/path/to/pico-sdk
+  export PICO_SDK_PATH=/the/long/and/winding/road/to/pico-sdk
 
   cd pico-sdk
 
@@ -80,34 +84,54 @@ but you won't find out until you actually try them.
 
 You really want something that looks thick and stiff, and flimsy
 cables are unlikely work (the cable that ships with M1 laptops
-doesn't). I've had good results with cables designed to carry video
-signals.
+doesn't). None of my cables labelled USB2.0 seem to work. I've had
+good results with cables designed to carry video signals, and USB3.1
+cables seem to do the trick.
 
 Because I'm lazy, the hardware only connects a single CC line to the
-board's PD controller. Which means that on the board side, there is
-only a single valid orientation for the USB-C cable. Trial and error
-are, as usual, your best friends. Put a label on the board's end of
-the cable as an indication of the orientation.
+board's PD controller, and there is no provision to swap TX and RX.
+Which means that on the board side, there is only a single valid
+orientation for the USB-C cable. Trial and error are, as usual, your
+best friends. Put a label on the board's end of the cable as an
+indication of the orientation.
+
+Also, there is only *ONE* USB-C port that is capable of serial
+output. The device will happily connect to it, and allow things like
+rebooting the Mac, but you won't get any serial output.
+
+Models I know of:
+- M1 mini 2020: USB-C port closest to the power supply
+- M1 Ultra 2022: USB-C port closest to the Ethernet port
+- M2 MacBook Air 2022: USB-C port closest to the MagSafe port
+- M2 Pro mini 2023: USB-C port closest to the Ethernet port (Oliver)
+
+No idea about other machines.
+
+Optionally, you can make use of the micro-USB connector that is on
+the other side of the board. It's main use it to allow interacting
+with the Asahi m1n1 firmware, such as tethered booting.
 
 ** Use it
 
 If you have correctly built and flashed the firmware, you will have
-the Pico led blinking at the rate of twice a second, and a
-/dev/ttyACM0 (or similar) that was detected by your host:
+the Pico led blinking at the rate of twice a second, and a couple of
+/dev/ttyACM* being advertised by your host:
 
-  [420294.546630] usb 1-4: USB disconnect, device number 12
-  [420294.902512] usb 1-4: new full-speed USB device number 13 using xhci_hcd
-  [420295.051407] usb 1-4: New USB device found, idVendor=2e8a, idProduct=000a, bcdDevice= 1.00
-  [420295.051421] usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
-  [420295.051427] usb 1-4: Product: Pico
-  [420295.051431] usb 1-4: Manufacturer: Raspberry Pi
-  [420295.051434] usb 1-4: SerialNumber: E66164084319392A
-  [420295.054182] cdc_acm 1-4:1.0: ttyACM0: USB ACM device
+  [708023.097129] usb 1-4: new full-speed USB device number 72 using xhci_hcd
+  [708023.265195] usb 1-4: New USB device found, idVendor=2e8a, idProduct=000a, bcdDevice= 1.00
+  [708023.265213] usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+  [708023.265219] usb 1-4: Product: Central Scrutinizer
+  [708023.265223] usb 1-4: Manufacturer: AAAFNRAA
+  [708023.265228] usb 1-4: SerialNumber: E66164084319392A
+  [708023.273622] cdc_acm 1-4:1.0: ttyACM0: USB ACM device
+  [708023.278612] cdc_acm 1-4:1.2: ttyACM1: USB ACM device
 
-The board identifies itself as a Pico, not the Central Scrutinizer you
-were hoping for. Again, I'm lazy. Who cares?
+The board identifies itself as a Pico (as per VID/PID), and claims to
+be the Central Scrutinizer, as you were hoping for.
 
-Just run:
+Each of the two /dev/ttyACM* devices is a potential connection to a
+Mac. Assuming the likely case that you have a single USB-C port on
+your board, run:
 
   screen /dev/ttyACM0
 
@@ -124,7 +148,6 @@ and you should see something like:
   P0: Disconnected
   P0: S: DISCONNECTED
   P0: Empty debug message
-  P1: I2C pins low while idling, skipping port
   P0: IRQ=0 10 0
   P0: Connected: cc1=2 cc2=0
   P0: Polarity: CC1 (normal)
@@ -134,7 +157,8 @@ and you should see something like:
   P0: IRQ=71 4 0
   P0: S: DFP_CONNECTED
   P0: >VDM serial -> SBU1/2
-  P0: IRQ=71 4 0
+  P0: IRQ=71 4 1
+  P0: <VDM RX SOP"DEBUG (5) [504f] 5ac8052 91340000 306 0 0
 
 If you see the ">VDM serial -> SBU1/2" line, the serial line should
 now be connected and you can interact with the M1. Note that you can
@@ -143,9 +167,14 @@ use any serial configuration you want on the Mac side as long as it is
 super low priority on the list of things I want to do. Also, there is
 no such list, and the current setup works well enough for me.
 
+Replace "screen" with whatever you want to communicate with the
+device, be it conserver, minicom, cu, or even cat (there is no
+accounting for taste).
+
 Typing ^_? (Control-Underscore followed by a question mark) will lead
 to the follwing dump:
 
+  P0: Current port
   ^_    Escape character
   ^_ ^_ Raw ^_
   ^_ ^@ Send break
@@ -155,9 +184,9 @@ to the follwing dump:
   ^_ ^D Toggle debug
   ^_ ^M Send empty debug VDM
   ^_ ?  This message
-  P0: present
-  P1: absent
-  
+  P0: Port 0: present
+  P0: Port 1: present
+
 which is completely self explainatory, but let's expand on it anyway:
 
 - ^_ ^_ sends a raw ^_, just in case you really need it
@@ -184,6 +213,6 @@ which is completely self explainatory, but let's expand on it anyway:
 
 - ^_ ? prints the help message (duh).
 
-Finally, the P0:/P1: lines indicate which I2C/UART combination the
+Finally, the Port 0:/1: lines indicate which I2C/UART combinations the
 board is using. The HW supports two boards being driven by a single
-Pico, but the SW is only vaguely aware of it. WIP.
+Pico, but it is very unlikely you have built such a configuration.

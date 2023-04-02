@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "bsp/board.h"
+#include "tusb.h"
 #include "m1-pd-bmc.h"
 #include "FUSB302.h"
 
@@ -75,12 +77,13 @@ static const struct gpio_pin_config m1_pd_bmc_pin_config1[] = {
 	},
 };
 
-#define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
-
-static void __not_in_flash_func(uart_irq_fn)(const struct hw_context *hw)
+static void __not_in_flash_func(uart_irq_fn)(int port,
+					     const struct hw_context *hw)
 {
-	while (uart_is_readable(hw->uart))
-		putchar_raw(uart_getc(hw->uart));
+	while (uart_is_readable(hw->uart)) {
+		char c = uart_getc(hw->uart);
+		usb_tx_bytes(port, &c, 1);
+	}
 }
 
 static void uart0_irq_fn(void);
@@ -108,12 +111,12 @@ static const struct hw_context hw1 = {
 
 static void __not_in_flash_func(uart0_irq_fn)(void)
 {
-	uart_irq_fn(&hw0);
+	uart_irq_fn(0, &hw0);
 }
 
 static void __not_in_flash_func(uart1_irq_fn)(void)
 {
-	uart_irq_fn(&hw1);
+	uart_irq_fn(1, &hw1);
 }
 
 static void init_system(const struct hw_context *hw)
@@ -154,30 +157,93 @@ static void m1_pd_bmc_system_init(const struct hw_context *hw)
 		m1_pd_bmc_gpio_setup_one(&hw->pins[i]);
 }
 
+void usb_tx_bytes(int32_t port, const char *ptr, int len)
+{
+        if (!tud_cdc_n_connected(port))
+		return;
+
+	while (len > 0) {
+		size_t available = tud_cdc_n_write_available(port);
+
+		if (!available) {
+			tud_task();
+		} else {
+			size_t send = MIN(len, available);
+			size_t sent = tud_cdc_n_write(port, ptr, send);
+
+			ptr += sent;
+			len -= sent;
+		}
+
+		tud_cdc_n_write_flush(port);
+        }
+}
+
+void usb_tx_str(int32_t port, char *str)
+{
+	do {
+		char *cursor = str;
+
+		while (*cursor && *cursor != '\n')
+			cursor++;
+
+		usb_tx_bytes(port, str, cursor - str);
+
+		if (!*cursor)
+			return;
+
+		usb_tx_bytes(port, "\n\r", 2);
+
+		str = cursor + 1;
+	} while (*str);
+}
+
+int32_t usb_rx_byte(int32_t port)
+{
+	uint8_t c;
+
+	if (!tud_cdc_n_connected(port) || !tud_cdc_n_available(port))
+		return -1;
+
+	tud_cdc_n_read(port, &c, 1);
+	return c;
+}
+
 int main(void)
 {
 	bool success;
+	int port;
 
 	success = set_sys_clock_khz(250000, false);
 
+	board_init();
+	tusb_init();
 	stdio_init_all();
 
 	m1_pd_bmc_system_init(&hw0);
 	m1_pd_bmc_system_init(&hw1);
 
-	while (!stdio_usb_connected()) {
+	do {
 		static bool state = false;
+		static int cnt = 0;
 
+		tud_task();
 		gpio_put(hw0.pins[LED_G].pin, state);
-		sleep_ms(250);
-		state = !state;
-	}
+		sleep_ms(1);
+		cnt++;
+		cnt %= 256;
+		if (!cnt)
+			state = !state;
+	} while (!tud_cdc_n_connected(0) && !tud_cdc_n_connected(1));
 
-	printf("This is the Central Scrutinizer\n"
-		"Control character is ^_\n"
-		"Press ^_ + ? for help\n");
+	port = !tud_cdc_n_connected(0);
+
+	__printf(port, "This is the Central Scrutinizer\n");
+	__printf(port, "Control character is ^_\n");
+	__printf(port, "Press ^_ + ? for help\n");
+
 	if (!success)
-		printf("WARNING: Nominal frequency NOT reached\n");
+		__printf(port, "WARNING: Nominal frequency NOT reached\n");
 
 	m1_pd_bmc_fusb_setup(0, &hw0);
 	m1_pd_bmc_fusb_setup(1, &hw1);
