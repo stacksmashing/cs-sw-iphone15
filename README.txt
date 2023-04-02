@@ -4,6 +4,11 @@ So you have built (or otherwise obtained) a device labelled "Central
 Scrutinizer" which allows you interact with the serial port of a M1/M2
 and reboot it.
 
+Otherwise, you can look at
+https://git.kernel.org/pub/scm/linux/kernel/git/maz/cs-hw.git
+for the hardware side of the project. Everything in this file
+assumes that the board is assembled and functionnal.
+
 This file describe how to build the software and flash it onto the
 Raspberry-Pi Pico that controls the adapter. As for the HW, the SW
 started its life as m1-ubmc, but let's be clear that its name really
@@ -29,8 +34,7 @@ to use anything else.
 
 ** Install the pico-sdk:
 
-I've mostly used version 1.4 of the SDK, but 1.5 seems to work
-too. YMMV.
+I've used versions 1.4 and 1.5 of the SDK. YMMV.
 
   git clone -b master https://github.com/raspberrypi/pico-sdk.git
 
@@ -102,6 +106,10 @@ Models I know of:
 - M2 Pro mini 2023: USB-C port closest to the Ethernet port (Oliver)
 
 No idea about other machines.
+
+Optionally, you can make use of the micro-USB connector that is on
+the other side of the board. It's main use it to allow interacting
+with the Asahi m1n1 firmware, such as tethered booting.
 
 ** Use it
 
