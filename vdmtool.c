@@ -581,10 +581,8 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 	struct vdm_context *cxt;
 	int16_t reg;
 
-	if (port >= CONFIG_USB_PD_PORT_COUNT) {
-		cprintf(cxt, "Bad port number %d\n", port);
+	if (port >= CONFIG_USB_PD_PORT_COUNT)
 		return;
-	}
 
 	cxt = vdm_contexts + port;
 	*cxt = (struct vdm_context) {
