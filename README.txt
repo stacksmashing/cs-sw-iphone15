@@ -186,7 +186,6 @@ to the follwing dump:
   P0: Current port
   ^_    Escape character
   ^_ ^_ Raw ^_
-  ^_ ^@ Send break
   ^_ !  DUT reset
   ^_ ^R Central Scrutinizer reset
   ^_ ^^ Central Scrutinizer reset to programming mode
@@ -199,9 +198,6 @@ to the follwing dump:
 which is completely self explainatory, but let's expand on it anyway:
 
 - ^_ ^_ sends a raw ^_, just in case you really need it
-
-- ^_ ^@ sends a break, which is useful if interacting with a Linux
-  console as you get the sysrq functionality.
 
 - ^_ ! resets the Mac without any warning. Yes, this is dangerous, use
   with caution and only when nothing else will do.

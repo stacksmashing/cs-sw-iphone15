@@ -449,7 +449,6 @@ static void help(struct vdm_context *cxt)
 	cprintf(cxt, "Current port\n"
 		"^_    Escape character\n"
 		"^_ ^_ Raw ^_\n"
-		"^_ ^@ Send break\n"
 		"^_ !  DUT reset\n"
 		"^_ ^R Central Scrutinizer reset\n"
 		"^_ ^^ Central Scrutinizer reset to programming mode\n"
@@ -462,6 +461,22 @@ static void help(struct vdm_context *cxt)
 		cprintf(cxt, "Port %d: %s\n",
 			PORT(&vdm_contexts[i]),
 			vdm_contexts[i].hw ? "present" : "absent");
+}
+
+/* Break is handled as sideband data via the CDC layer */
+void tud_cdc_send_break_cb(uint8_t itf, uint16_t duration_ms)
+{
+	struct vdm_context *cxt;
+
+	if (itf > CONFIG_USB_PD_PORT_COUNT)
+		return;
+
+	cxt = &vdm_contexts[itf];
+
+	if (!cxt->hw)
+		return;
+
+	uart_set_break(UART(cxt), !!duration_ms);
 }
 
 static bool serial_handler(struct vdm_context *cxt)
@@ -497,11 +512,6 @@ static bool serial_handler(struct vdm_context *cxt)
 			break;
 		case 4:				/* ^D */
 			cxt->verbose = !cxt->verbose;
-			break;
-		case 0:				/* ^@ */
-			uart_set_break(UART(cxt), true);
-			sleep_ms(1);
-			uart_set_break(UART(cxt), false);
 			break;
 		case '\r':			/* Enter */
 			debug_poke(cxt);
