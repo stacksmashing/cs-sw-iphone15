@@ -405,6 +405,13 @@ static void vdm_send_msg(struct vdm_context *cxt, const uint32_t *vdm, int nr_u3
 	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP_DEBUG_PRIME_PRIME, hdr, vdm);
 }
 
+static void vdm_pd_reset(struct vdm_context *cxt)
+{
+	uint32_t vdm[] = { 0x5ac8012, 0x0103, 0x8000<<16 };
+	vdm_send_msg(cxt, vdm, ARRAY_SIZE(vdm));
+	cprintf(cxt, ">VDM SET ACTION PD reset\n");
+}
+
 static void vdm_claim_serial(struct vdm_context *cxt)
 {
 	static const char *pinsets[] = {
@@ -448,6 +455,8 @@ static void help(struct vdm_context *cxt)
 		"^_ ^^ Central Scrutinizer reset to programming mode\n"
 		"^_ ^D Toggle debug\n"
 		"^_ ^M Send empty debug VDM\n"
+		"^_ 1  Serial on Primary USB pins\n"
+		"^_ 2  Serial on SBU pins\n"
 		"^_ ?  This message\n");
 	for (int i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++)
 		cprintf(cxt, "Port %d: %s\n",
@@ -496,6 +505,10 @@ static bool serial_handler(struct vdm_context *cxt)
 			break;
 		case '\r':			/* Enter */
 			debug_poke(cxt);
+			break;
+		case '1' ... '2':
+			cxt->serial_pin_set = c - '0';
+			vdm_pd_reset(cxt);
 			break;
 		case '?':
 			help(cxt);

@@ -46,7 +46,7 @@ void usb_tx_bytes(int32_t port, const char *ptr, int len);
 void usb_tx_str(int32_t port, char *ptr);
 int32_t usb_rx_byte(int32_t port);
 
-#define PRINTF_SIZE	256
+#define PRINTF_SIZE	512
 
 #define __printf(__p, __f, ...)	do {					\
 		char __str[PRINTF_SIZE];				\
