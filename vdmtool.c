@@ -32,6 +32,7 @@ struct vdm_context {
 	volatile bool			pending;
 	bool 				verbose;
 	bool				vdm_escape;
+	uint8_t				serial_pin_set;
 };
 
 static struct vdm_context vdm_contexts[CONFIG_USB_PD_PORT_COUNT];
@@ -349,14 +350,14 @@ static void evt_packet(struct vdm_context *cxt)
 	handle_msg(cxt, sop, hdr, msg);
 }
 
-static void vdm_fun(struct vdm_context *cxt);
+static void vdm_claim_serial(struct vdm_context *cxt);
 
 static void evt_sent(struct vdm_context *cxt)
 {
 	switch (cxt->state) {
 	case STATE_DFP_VBUS_ON:
 		STATE(cxt, DFP_CONNECTED);
-		vdm_fun(cxt);
+		vdm_claim_serial(cxt);
 		break;
 	case STATE_DFP_ACCEPT:
 		send_ps_rdy(cxt);
@@ -398,28 +399,43 @@ static void handle_irq(struct vdm_context *cxt)
 	}
 }
 
-static void vdm_fun(struct vdm_context *cxt)
+static void vdm_send_msg(struct vdm_context *cxt, const uint32_t *vdm, int nr_u32)
 {
+	int16_t hdr = PD_HEADER(PD_DATA_VENDOR_DEF, 1, 1, 0, nr_u32, PD_REV20, 0);
+	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP_DEBUG_PRIME_PRIME, hdr, vdm);
+}
+
+static void vdm_pd_reset(struct vdm_context *cxt)
+{
+	uint32_t vdm[] = { 0x5ac8012, 0x0103, 0x8000<<16 };
+	vdm_send_msg(cxt, vdm, ARRAY_SIZE(vdm));
+	cprintf(cxt, ">VDM SET ACTION PD reset\n");
+}
+
+static void vdm_claim_serial(struct vdm_context *cxt)
+{
+	static const char *pinsets[] = {
+		"AltUSB", "PrimUSB", "SBU1/2",
+	};
 
 	//uint32_t vdm[] = { 0x5ac8010 }; // Get Action List
 	//uint32_t vdm[] = { 0x5ac8012, 0x0105, 0x8002<<16 }; // PMU Reset + DFU Hold
 	//uint32_t vdm[] = { 0x5ac8011, 0x0809  }; // Get Action List
 	//uint32_t vdm[] = { 0x5ac8012, 0x0105, 0x8000<<16 };
 
-	// VDM to mux debug UART over SBU1/2
-	uint32_t vdm[] = { 0x5AC8012, 0x01840306 };
+	// VDM to mux debug UART over some set of pin...
+	uint32_t vdm[] = { 0x5AC8012, 0x01800306 };
 
-	int16_t hdr = PD_HEADER(PD_DATA_VENDOR_DEF, 1, 1, 0, sizeof(vdm) / 4, PD_REV20, 0);
-	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP_DEBUG_PRIME_PRIME, hdr, vdm);
-	cprintf(cxt, ">VDM serial -> SBU1/2\n");
+	vdm[1] |= 1 << (cxt->serial_pin_set + 16);
 
+	vdm_send_msg(cxt, vdm, ARRAY_SIZE(vdm));
+	cprintf(cxt, ">VDM serial -> %s\n", pinsets[cxt->serial_pin_set]);
 }
 
 void vdm_send_reboot(struct vdm_context *cxt)
 {
 	uint32_t vdm[] = { 0x5ac8012, 0x0105, 0x8000UL<<16 };
-	int hdr = PD_HEADER(PD_DATA_VENDOR_DEF, 1, 1, 0, sizeof(vdm) / 4, PD_REV20, 0);
-	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP_DEBUG_PRIME_PRIME, hdr, vdm);
+	vdm_send_msg(cxt, vdm, ARRAY_SIZE(vdm));
 	cprintf(cxt, ">VDM SET ACTION reboot\n");
 }
 
@@ -439,6 +455,8 @@ static void help(struct vdm_context *cxt)
 		"^_ ^^ Central Scrutinizer reset to programming mode\n"
 		"^_ ^D Toggle debug\n"
 		"^_ ^M Send empty debug VDM\n"
+		"^_ 1  Serial on Primary USB pins\n"
+		"^_ 2  Serial on SBU pins\n"
 		"^_ ?  This message\n");
 	for (int i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++)
 		cprintf(cxt, "Port %d: %s\n",
@@ -487,6 +505,10 @@ static bool serial_handler(struct vdm_context *cxt)
 			break;
 		case '\r':			/* Enter */
 			debug_poke(cxt);
+			break;
+		case '1' ... '2':
+			cxt->serial_pin_set = c - '0';
+			vdm_pd_reset(cxt);
 			break;
 		case '?':
 			help(cxt);
@@ -581,10 +603,8 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 	struct vdm_context *cxt;
 	int16_t reg;
 
-	if (port >= CONFIG_USB_PD_PORT_COUNT) {
-		cprintf(cxt, "Bad port number %d\n", port);
+	if (port >= CONFIG_USB_PD_PORT_COUNT)
 		return;
-	}
 
 	cxt = vdm_contexts + port;
 	*cxt = (struct vdm_context) {
@@ -594,6 +614,7 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 		.cc_debounce		= 0,
 		.verbose		= false,
 		.vdm_escape		= false,
+		.serial_pin_set		= 2, /* SBU1/2 */
 	};
 
 	/*

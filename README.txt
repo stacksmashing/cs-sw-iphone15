@@ -88,6 +88,14 @@ doesn't). None of my cables labelled USB2.0 seem to work. I've had
 good results with cables designed to carry video signals, and USB3.1
 cables seem to do the trick.
 
+If you are stuck with a USB2.0 cable that doesn't have the SBU1/2
+signals, there is still a way to get a serial console by using the
+USB2.0 lines and connecting the SBU1 to USB_TX and SBU2 to USB_RX. On
+revision v2 of the board, this is only a matter of linking two sets of
+pins next to the micro-USB connector. In such a configuration, *DO NOT
+USE* the micro-USB connector *AT ALL* (put some tape or glue on it).
+If you don't know how to perform this change, please don't try.
+
 Because I'm lazy, the hardware only connects a single CC line to the
 board's PD controller, and there is no provision to swap TX and RX.
 Which means that on the board side, there is only a single valid
@@ -109,7 +117,8 @@ No idea about other machines.
 
 Optionally, you can make use of the micro-USB connector that is on
 the other side of the board. It's main use it to allow interacting
-with the Asahi m1n1 firmware, such as tethered booting.
+with the Asahi m1n1 firmware, such as tethered booting. Do not connect
+it to anything if you use the USB2.0 lines as the serial console.
 
 ** Use it
 
