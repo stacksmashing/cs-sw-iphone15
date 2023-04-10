@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "m1-pd-bmc.h"
 #include "tcpm_driver.h"
 

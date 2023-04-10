@@ -1,7 +1,6 @@
 // FUSB302-based serial/reset/whatever controller for M1-based systems
 
 #include <stddef.h>
-#include <stdio.h>
 
 #include "bsp/board.h"
 #include "tusb.h"
@@ -218,7 +217,6 @@ int main(void)
 
 	board_init();
 	tusb_init();
-	stdio_init_all();
 
 	m1_pd_bmc_system_init(&hw0);
 	m1_pd_bmc_system_init(&hw1);
