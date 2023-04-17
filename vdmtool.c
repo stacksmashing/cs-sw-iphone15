@@ -475,7 +475,12 @@ void tud_cdc_send_break_cb(uint8_t itf, uint16_t duration_ms)
 	if (!cxt->hw)
 		return;
 
+	/* Section 6.2.15 of the spec has the recipe */
 	uart_set_break(UART(cxt), !!duration_ms);
+	if (duration_ms && duration_ms != (uint16_t)~0) {
+		sleep_ms(duration_ms);
+		uart_set_break(UART(cxt), 0);
+	}
 }
 
 static bool serial_handler(struct vdm_context *cxt)
