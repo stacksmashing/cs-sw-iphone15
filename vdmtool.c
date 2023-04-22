@@ -174,7 +174,7 @@ static void send_sink_cap(struct vdm_context *cxt)
 static void send_source_cap(struct vdm_context *cxt)
 {
 	int16_t hdr = PD_HEADER(PD_DATA_SOURCE_CAP, 1, 1, 0, 1, PD_REV20, 0);
-	uint32_t cap = 0x37019096;
+	uint32_t cap = 1UL << 31; /* Variable non-battery PS, 0V, 0mA */
 
 	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP, hdr, &cap);
 	cprintf(cxt, ">SOURCE_CAP\n");
