@@ -104,6 +104,13 @@ static void evt_dfpconnect(struct vdm_context *cxt)
 		fusb302_tcpm_set_polarity(PORT(cxt), 1);
 		cprintf(cxt, "Polarity: CC2 (flipped)\n");
 	}
+
+	/* If none of the CCs are disconnected, enable VCONN */
+	if (cc1 && cc2) {
+		fusb302_tcpm_set_vconn(PORT(cxt), 1);
+		cprintf(cxt, "VCONN on CC%d\n", (cc2 < cc1) + 1);
+	}
+
 	fusb302_tcpm_set_rx_enable(PORT(cxt), 1);
 	vbus_on(cxt);
 	STATE(cxt, DFP_VBUS_ON);
@@ -138,6 +145,7 @@ static void evt_disconnect(struct vdm_context *cxt)
 	vbus_off(cxt);
 	cprintf(cxt, "Disconnected\n");
 	fusb302_pd_reset(PORT(cxt));
+	fusb302_tcpm_set_vconn(PORT(cxt), 0);
 	fusb302_tcpm_set_rx_enable(PORT(cxt), 0);
 	fusb302_tcpm_select_rp_value(PORT(cxt), TYPEC_RP_USB);
 	fusb302_tcpm_set_cc(PORT(cxt), TYPEC_CC_RP);	// DFP mode
