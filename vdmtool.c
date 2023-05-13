@@ -459,6 +459,7 @@ static void help(struct vdm_context *cxt)
 		"^_ !  DUT reset\n"
 		"^_ ^R Central Scrutinizer reset\n"
 		"^_ ^^ Central Scrutinizer reset to programming mode\n"
+		"^_ ^X Force disconnect\n"
 		"^_ ^D Toggle debug\n"
 		"^_ ^M Send empty debug VDM\n"
 		"^_ 1  Serial on Primary USB pins\n"
@@ -531,6 +532,9 @@ static bool serial_handler(struct vdm_context *cxt)
 		case '1' ... '2':
 			cxt->serial_pin_set = c - '0';
 			vdm_pd_reset(cxt);
+			break;
+		case 0x18:			/* ^X */
+			evt_disconnect(cxt);
 			break;
 		case '?':
 			help(cxt);
