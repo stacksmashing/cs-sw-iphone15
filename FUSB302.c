@@ -954,6 +954,38 @@ void fusb302_get_irq(int16_t port, int16_t *interrupt, int16_t *interrupta, int1
 #endif
 }
 
+int16_t fusb302_tcpm_set_vconn(int16_t port, int16_t enable)
+{
+	/*
+	 * FUSB302 does not have dedicated VCONN Enable switch.
+	 * We'll get through this by disabling both of the
+	 * VCONN - CC* switches to disable, and enabling the
+	 * saved polarity when enabling.
+	 * Therefore at startup, set_polarity should be called first,
+	 * or else live with the default put into init.
+	 */
+	int16_t reg;
+
+	/* save enable state for later use */
+	state[port].vconn_enabled = enable;
+
+	if (enable) {
+		/* set to saved polarity */
+		fusb302_tcpm_set_polarity(port, state[port].cc_polarity);
+	} else {
+
+		tcpc_read(port, TCPC_REG_SWITCHES0, &reg);
+
+		/* clear VCONN switch bits */
+		reg &= ~TCPC_REG_SWITCHES0_VCONN_CC1;
+		reg &= ~TCPC_REG_SWITCHES0_VCONN_CC2;
+
+		tcpc_write(port, TCPC_REG_SWITCHES0, reg);
+	}
+
+	return 0;
+}
+
 #if 0
 /* For BIST receiving */
 void tcpm_set_bist_test_data(int16_t port)
