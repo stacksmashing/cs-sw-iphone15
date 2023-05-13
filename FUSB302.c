@@ -534,10 +534,13 @@ int16_t fusb302_tcpm_set_polarity(int16_t port, int16_t polarity)
 
 	if (state[port].vconn_enabled) {
 		/* set VCONN switch to be non-CC line */
-		if (polarity)
+		if (polarity) {
 			reg |= TCPC_REG_SWITCHES0_VCONN_CC1;
-		else
+			reg &= ~TCPC_REG_SWITCHES0_CC1_PU_EN;
+		} else {
 			reg |= TCPC_REG_SWITCHES0_VCONN_CC2;
+			reg &= ~TCPC_REG_SWITCHES0_CC2_PU_EN;
+		}
 	}
 
 	/* clear meas_cc bits (RX line select) */
