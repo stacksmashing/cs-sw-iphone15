@@ -108,7 +108,8 @@ static int16_t measure_cc_pin_source(int16_t port, int16_t cc_measure)
 	/* Save current value */
 	switches0_reg = reg;
 	/* Clear pull-up register settings and measure bits */
-	reg &= ~(TCPC_REG_SWITCHES0_MEAS_CC1 | TCPC_REG_SWITCHES0_MEAS_CC2);
+	reg &= ~(TCPC_REG_SWITCHES0_MEAS_CC1 | TCPC_REG_SWITCHES0_MEAS_CC2 |
+		 TCPC_REG_SWITCHES0_CC1_PU_EN | TCPC_REG_SWITCHES0_CC2_PU_EN);
 	/* Set desired pullup register bit */
 	if (cc_measure == TCPC_REG_SWITCHES0_MEAS_CC1)
 		reg |= TCPC_REG_SWITCHES0_CC1_PU_EN;
