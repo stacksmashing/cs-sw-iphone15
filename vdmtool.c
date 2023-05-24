@@ -534,6 +534,7 @@ static bool serial_handler(struct vdm_context *cxt)
 			vdm_pd_reset(cxt);
 			break;
 		case 0x18:			/* ^X */
+			cxt->pending = true;
 			evt_disconnect(cxt);
 			break;
 		case '?':
