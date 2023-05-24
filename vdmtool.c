@@ -95,6 +95,9 @@ static void evt_dfpconnect(struct vdm_context *cxt)
 		cprintf(cxt, "Nope.\n");
 		return;
 	}
+
+	fusb302_tcpm_set_vconn(PORT(cxt), 0);
+
 	fusb302_pd_reset(PORT(cxt));
 	fusb302_tcpm_set_msg_header(PORT(cxt), 1, 1);	// Source
 	if (cc1 > cc2) {
