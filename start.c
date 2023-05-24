@@ -39,6 +39,11 @@ static const struct gpio_pin_config m1_pd_bmc_pin_config0[] = {
 		.pin	= 13,
 		.mode	= GPIO_FUNC_UART,
 	},
+	[SBU_SWAP] = {
+		.pin	= 20,
+		.mode	= GPIO_FUNC_SIO,
+		.dir	= GPIO_OUT,
+	},
 };
 
 static const struct gpio_pin_config m1_pd_bmc_pin_config1[] = {
@@ -73,6 +78,11 @@ static const struct gpio_pin_config m1_pd_bmc_pin_config1[] = {
 	[UART_RX] = {		/* UART1 */
 		.pin	= 9,
 		.mode	= GPIO_FUNC_UART,
+	},
+	[SBU_SWAP] = {
+		.pin	= 21,
+		.mode	= GPIO_FUNC_SIO,
+		.dir	= GPIO_OUT,
 	},
 };
 

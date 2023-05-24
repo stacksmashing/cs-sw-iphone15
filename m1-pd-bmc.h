@@ -25,6 +25,7 @@ enum m1_pd_bmc_pins {
 	FUSB_VBUS,
 	UART_TX,
 	UART_RX,
+	SBU_SWAP,
 };
 
 struct hw_context {

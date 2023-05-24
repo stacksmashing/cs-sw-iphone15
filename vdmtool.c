@@ -31,6 +31,7 @@ struct vdm_context {
 	volatile bool			pending;
 	bool 				verbose;
 	bool				vdm_escape;
+	bool				cc_line;
 	uint8_t				serial_pin_set;
 };
 
@@ -100,18 +101,15 @@ static void evt_dfpconnect(struct vdm_context *cxt)
 
 	fusb302_pd_reset(PORT(cxt));
 	fusb302_tcpm_set_msg_header(PORT(cxt), 1, 1);	// Source
-	if (cc1 > cc2) {
-		fusb302_tcpm_set_polarity(PORT(cxt), 0);
-		cprintf(cxt, "Polarity: CC1 (normal)\n");
-	} else {
-		fusb302_tcpm_set_polarity(PORT(cxt), 1);
-		cprintf(cxt, "Polarity: CC2 (flipped)\n");
-	}
+	cxt->cc_line = !(cc1 > cc2);
+	fusb302_tcpm_set_polarity(PORT(cxt), cxt->cc_line);
+	cprintf(cxt, "Polarity: CC%d (%s)\n",
+		(int)cxt->cc_line + 1, cxt->cc_line ? "flipped" : "normal");
 
 	/* If none of the CCs are disconnected, enable VCONN */
 	if (cc1 && cc2) {
 		fusb302_tcpm_set_vconn(PORT(cxt), 1);
-		cprintf(cxt, "VCONN on CC%d\n", (cc2 < cc1) + 1);
+		cprintf(cxt, "VCONN on CC%d\n", (int)cxt->cc_line + 1);
 	}
 
 	fusb302_tcpm_set_rx_enable(PORT(cxt), 1);
@@ -427,6 +425,7 @@ static void vdm_claim_serial(struct vdm_context *cxt)
 	static const char *pinsets[] = {
 		"AltUSB", "PrimUSB", "SBU1/2",
 	};
+	bool sbu_swap;
 
 	//uint32_t vdm[] = { 0x5ac8010 }; // Get Action List
 	//uint32_t vdm[] = { 0x5ac8012, 0x0105, 0x8002<<16 }; // PMU Reset + DFU Hold
@@ -440,6 +439,12 @@ static void vdm_claim_serial(struct vdm_context *cxt)
 
 	vdm_send_msg(cxt, vdm, ARRAY_SIZE(vdm));
 	cprintf(cxt, ">VDM serial -> %s\n", pinsets[cxt->serial_pin_set]);
+
+	/* If using the SBU pins, swap the pins if using CC2. */
+	sbu_swap = (cxt->serial_pin_set == 2) ? cxt->cc_line : LOW;
+
+	gpio_put(PIN(cxt, SBU_SWAP), sbu_swap);
+	dprintf(cxt, "SBU_SWAP = %d\n", sbu_swap);
 }
 
 void vdm_send_reboot(struct vdm_context *cxt)
@@ -658,6 +663,7 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 	}
 
 	gpio_put(PIN(cxt, LED_G), HIGH);
+	gpio_put(PIN(cxt, SBU_SWAP), LOW);
 	vbus_off(cxt);
 
 	tcpc_read(PORT(cxt), TCPC_REG_DEVICE_ID, &reg);
