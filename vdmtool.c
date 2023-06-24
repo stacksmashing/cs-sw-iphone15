@@ -425,7 +425,7 @@ static void vdm_claim_serial(struct vdm_context *cxt)
 	static const char *pinsets[] = {
 		"AltUSB", "PrimUSB", "SBU1/2",
 	};
-	bool sbu_swap;
+	bool usb_serial, sbu_swap;
 
 	//uint32_t vdm[] = { 0x5ac8010 }; // Get Action List
 	//uint32_t vdm[] = { 0x5ac8012, 0x0105, 0x8002<<16 }; // PMU Reset + DFU Hold
@@ -442,9 +442,11 @@ static void vdm_claim_serial(struct vdm_context *cxt)
 
 	/* If using the SBU pins, swap the pins if using CC2. */
 	sbu_swap = (cxt->serial_pin_set == 2) ? cxt->cc_line : LOW;
+	usb_serial = (cxt->serial_pin_set == 1);
 
 	gpio_put(PIN(cxt, SBU_SWAP), sbu_swap);
-	dprintf(cxt, "SBU_SWAP = %d\n", sbu_swap);
+	gpio_put(PIN(cxt, SEL_USB), usb_serial);
+	dprintf(cxt, "SBU_SWAP = %d, SEL_USB = %d\n", sbu_swap, usb_serial);
 }
 
 void vdm_send_reboot(struct vdm_context *cxt)
@@ -663,7 +665,10 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 	}
 
 	gpio_put(PIN(cxt, LED_G), HIGH);
+	/* No swapping */
 	gpio_put(PIN(cxt, SBU_SWAP), LOW);
+	/* USB2.0 pins routed to USB */
+	gpio_put(PIN(cxt, SEL_USB), LOW);
 	vbus_off(cxt);
 
 	tcpc_read(PORT(cxt), TCPC_REG_DEVICE_ID, &reg);
