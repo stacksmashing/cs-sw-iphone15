@@ -535,6 +535,7 @@ static bool serial_handler(struct vdm_context *cxt)
 			break;
 		case 4:				/* ^D */
 			cxt->verbose = !cxt->verbose;
+			cprintf(cxt, "Debug o%s\n", cxt->verbose ? "n" : "ff");
 			break;
 		case '\r':			/* Enter */
 			debug_poke(cxt);
