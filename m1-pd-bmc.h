@@ -14,6 +14,7 @@ struct gpio_pin_config {
 	enum gpio_function	mode;
 	int			dir;
 	bool			pu;
+	bool			level;
 	bool			skip;
 };
 

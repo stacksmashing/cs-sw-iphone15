@@ -163,6 +163,8 @@ static void m1_pd_bmc_gpio_setup_one(const struct gpio_pin_config *pin)
 	if (pin->mode == GPIO_FUNC_SIO) {
 		gpio_init(pin->pin);
 		gpio_set_dir(pin->pin, pin->dir);
+		if (pin->dir == GPIO_OUT)
+			gpio_put(pin->pin, pin->level);
 	}
 	if (pin->pu)
 		gpio_pull_up(pin->pin);
