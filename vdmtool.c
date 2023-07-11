@@ -420,11 +420,12 @@ static void vdm_pd_reset(struct vdm_context *cxt)
 	cprintf(cxt, ">VDM SET ACTION PD reset\n");
 }
 
+static const char *pinsets[] = {
+	"AltUSB", "PrimUSB", "SBU1/2",
+};
+
 static void vdm_claim_serial(struct vdm_context *cxt)
 {
-	static const char *pinsets[] = {
-		"AltUSB", "PrimUSB", "SBU1/2",
-	};
 	bool usb_serial, sbu_swap;
 
 	//uint32_t vdm[] = { 0x5ac8010 }; // Get Action List
@@ -475,10 +476,19 @@ static void help(struct vdm_context *cxt)
 		"^_ 1  Serial on Primary USB pins\n"
 		"^_ 2  Serial on SBU pins\n"
 		"^_ ?  This message\n");
-	for (int i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++)
-		cprintf(cxt, "Port %d: %s\n",
-			PORT(&vdm_contexts[i]),
-			vdm_contexts[i].hw ? "present" : "absent");
+	for (int i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++) {
+		struct vdm_context *tmp = &vdm_contexts[i];
+
+		cprintf(cxt, "Port %d: %s",
+			PORT(tmp),
+			tmp->hw ? "present" : "absent");
+		if (tmp->hw)
+			cprintf_cont(cxt, ",cc%d,%s%s",
+				     tmp->cc_line + 1,
+				     pinsets[tmp->serial_pin_set],
+				     tmp->verbose ? ",debug" : "");
+		cprintf_cont(cxt, "\n");
+	}
 }
 
 /* Break is handled as sideband data via the CDC layer */
