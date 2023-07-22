@@ -52,6 +52,8 @@ It builds just like any other pico-sdk project:
 
   cd cs-sw
 
+  [optionally checkout the dev branch you want]
+
   mkdir build
 
   cd build
@@ -90,22 +92,33 @@ cables seem to do the trick.
 
 If you are stuck with a USB2.0 cable that doesn't have the SBU1/2
 signals, there is still a way to get a serial console by using the
-USB2.0 lines and connecting the SBU1 to USB_TX and SBU2 to USB_RX. On
-revision v2 of the board, this is only a matter of linking two sets of
-pins next to the micro-USB connector. In such a configuration, *DO NOT
-USE* the micro-USB connector *AT ALL* (put some tape or glue on it).
-If you don't know how to perform this change, please don't try.
+USB2.0 lines if you have a v2 or later:
 
-Because I'm lazy, the hardware only connects a single CC line to the
-board's PD controller, and there is no provision to swap TX and RX.
-Which means that on the board side, there is only a single valid
-orientation for the USB-C cable. Trial and error are, as usual, your
-best friends. Put a label on the board's end of the cable as an
-indication of the orientation.
+  - v2: you can connect SBU1 to USB_TX and SBU2 to USB_RX, which is
+    only a matter of linking two sets of pins next to the micro-USB
+    connector. In such a configuration, *DO NOT USE* the micro-USB
+    connector *AT ALL* (put some tape or glue on it).  If you don't
+    know how to perform this change, please don't try. You can then
+    instruct the firmware to claim these pins instead of the SBU pins.
+
+  - v3+: switching the serial lines is fully under SW control, and you
+    can dynamically switch between the two configurations. Better use
+    a proper SBU capable cable though, as you otherwise lose the USB
+    passthrough capability.
+
+Other oddities: because I'm lazy, the v0/v1 hardware only connects a
+single CC line to the board's PD controller, and there is no provision
+to swap TX and RX.  Which means that on the board side, there is only
+a single valid orientation for the USB-C cable. Trial and error are,
+as usual, your best friends. Put a label on the board's end of the
+cable as an indication of the orientation. v2 and later boards have
+the required logic to detect the orientation and swap the SBU pins,
+making them easier to use.
 
 Also, there is only *ONE* USB-C port that is capable of serial
-output. The device will happily connect to it, and allow things like
-rebooting the Mac, but you won't get any serial output.
+output. The device will happily connect to others, and allow things
+like rebooting the Mac, but you won't get any serial output. Please
+use the correct port.
 
 Models I know of:
 - M1 mini 2020: USB-C port closest to the power supply
@@ -139,8 +152,8 @@ The board identifies itself as a Pico (as per VID/PID), and claims to
 be the Central Scrutinizer, as you were hoping for.
 
 Each of the two /dev/ttyACM* devices is a potential connection to a
-Mac. Assuming the likely case that you have a single USB-C port on
-your board, run:
+Mac. Assuming the likely case that you have a single CS board attached
+to the Pico, run:
 
   screen /dev/ttyACM0
 
@@ -189,11 +202,14 @@ to the follwing dump:
   ^_ !  DUT reset
   ^_ ^R Central Scrutinizer reset
   ^_ ^^ Central Scrutinizer reset to programming mode
+  ^_ ^X Force disconnect
   ^_ ^D Toggle debug
   ^_ ^M Send empty debug VDM
+  ^_ 1  Serial on Primary USB pins
+  ^_ 2  Serial on SBU pins
   ^_ ?  This message
-  P0: Port 0: present
-  P0: Port 1: present
+  P0: Port 0: present,cc1,SBU1/2
+  P0: Port 1: absent
 
 which is completely self explainatory, but let's expand on it anyway:
 
@@ -209,6 +225,10 @@ which is completely self explainatory, but let's expand on it anyway:
   as if you had plugged it with the BOOTROM button pressed. You end-up
   in mass-storage mode and can update the firmware.
 
+- ^_ ^X forces a PD disconnection, in case either the CS or the Mac
+  becomes a bit confused. It was useful a couple of times in debugging
+  situations...
+
 - ^_ ^D toggles the "debug" internal flag. This has very little effect
   at the moment as most of the debug statements ignore the flag and
   spit out the junk on the console unconditionally.
@@ -216,8 +236,17 @@ which is completely self explainatory, but let's expand on it anyway:
 - ^_ ^M sends an empty debug message to the remote PD controller.
   That's a debug feature...
 
+- ^_ 1  Configure the Mac's serial on Primary USB pins. On v3+, this
+  also isolates the micro-USb connector. On older versions, it
+  doesn't, so make sure you don't have anything plugged there.
+
+- ^_ 2 Configure the Mac's serial on SBU pins, which is the default.
+  On v3+, this enables the use of the micro-USB connector.
+
 - ^_ ? prints the help message (duh).
 
 Finally, the Port 0:/1: lines indicate which I2C/UART combinations the
-board is using. The HW supports two boards being driven by a single
-Pico, but it is very unlikely you have built such a configuration.
+board is using, as well as the CC line used, the pin set used for
+serial, and potentially the deug status. The HW supports two boards
+being driven by a single Pico, but it is very unlikely you have built
+such a configuration.
