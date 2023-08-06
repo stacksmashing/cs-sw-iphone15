@@ -576,9 +576,12 @@ static void state_machine(struct vdm_context *cxt)
 		int16_t cc1 = -1, cc2 = -1;
 		fusb302_tcpm_get_cc(PORT(cxt), &cc1, &cc2);
 		dprintf(cxt, "Poll: cc1=%d  cc2=%d\n", (int)cc1, (int)cc2);
-		sleep_ms(200);
-		if (cc1 >= 2 || cc2 >= 2)
+		if (cc1 >= 2 || cc2 >= 2) {
+			sleep_ms(200);
 			evt_dfpconnect(cxt);
+		} else {
+			vbus_off(cxt);
+		}
 		break;
 	}
 	case STATE_CONNECTED:{
