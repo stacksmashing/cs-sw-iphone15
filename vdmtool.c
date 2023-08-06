@@ -83,7 +83,7 @@ void debug_poke(struct vdm_context *cxt)
 	int16_t hdr = PD_HEADER(PD_DATA_VENDOR_DEF, 1, 1, 0, 1, PD_REV20, 0);
 	const uint32_t x = 0;
 
-	cprintf(cxt, "Empty debug message\n");
+	dprintf(cxt, "Empty debug message\n");
 	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP_DEBUG_PRIME_PRIME, hdr, &x);
 }
 
@@ -380,7 +380,7 @@ static void handle_irq(struct vdm_context *cxt)
 	int16_t irq, irqa, irqb;
 	fusb302_get_irq(PORT(cxt), &irq, &irqa, &irqb);
 
-	cprintf(cxt, "IRQ=%x %x %x\n", irq, irqa, irqb);
+	dprintf(cxt, "IRQ=%x %x %x\n", irq, irqa, irqb);
 	if (irq & TCPC_REG_INTERRUPT_VBUSOK) {
 		cprintf(cxt, "IRQ: VBUSOK (VBUS=");
 		if (fusb302_tcpm_get_vbus_level(PORT(cxt))) {
