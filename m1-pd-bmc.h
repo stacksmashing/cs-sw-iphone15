@@ -19,7 +19,8 @@ struct gpio_pin_config {
 };
 
 enum m1_pd_bmc_pins {
-	LED_G,
+	M1_BMC_PIN_START,
+	LED_G = M1_BMC_PIN_START,
 	I2C_SDA,
 	I2C_SCL,
 	FUSB_INT,
@@ -28,6 +29,7 @@ enum m1_pd_bmc_pins {
 	UART_RX,
 	SBU_SWAP,
 	SEL_USB,
+	M1_BMC_PIN_END = SEL_USB,
 };
 
 struct hw_context {

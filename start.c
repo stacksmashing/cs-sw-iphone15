@@ -8,6 +8,9 @@
 #include "FUSB302.h"
 
 static const struct gpio_pin_config m1_pd_bmc_pin_config0[] = {
+	[M1_BMC_PIN_START ... M1_BMC_PIN_END] = {
+		.skip	= true,
+	},
 	[LED_G] = {
 		.pin	= 25,
 		.mode	= GPIO_FUNC_SIO,
@@ -52,6 +55,9 @@ static const struct gpio_pin_config m1_pd_bmc_pin_config0[] = {
 };
 
 static const struct gpio_pin_config m1_pd_bmc_pin_config1[] = {
+	[M1_BMC_PIN_START ... M1_BMC_PIN_END] = {
+		.skip	= true,
+	},
 	[LED_G] = {
 		.pin	= 25,
 		.mode	= GPIO_FUNC_SIO,
