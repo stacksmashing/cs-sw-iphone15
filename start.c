@@ -235,7 +235,7 @@ int main(void)
 	bool success;
 	int port;
 
-	success = set_sys_clock_khz(250000, false);
+	success = set_sys_clock_khz(133000, false);
 
 	board_init();
 	tusb_init();
