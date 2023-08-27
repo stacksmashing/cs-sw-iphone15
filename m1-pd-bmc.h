@@ -45,17 +45,23 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 			  const struct hw_context *hw);
 void m1_pd_bmc_run(void);
 
-void usb_tx_bytes(int32_t port, const char *ptr, int len);
-void usb_tx_str(int32_t port, char *ptr);
-int32_t usb_rx_byte(int32_t port);
+struct upstream_ops {
+	void	(*tx_bytes)(int32_t port, const char *ptr, int len);
+	int32_t	(*rx_byte)(int32_t port);
+	void	(*flush)(void);
+};
+
+extern const struct upstream_ops *upstream_ops;
+
+void upstream_tx_str(int32_t port, const char *ptr);
 
 #define PRINTF_SIZE	512
 
 #define __printf(__p, __f, ...)	do {					\
 		char __str[PRINTF_SIZE];				\
 		snprintf(__str, PRINTF_SIZE, __f, ##__VA_ARGS__);	\
-		usb_tx_str(__p, __str);					\
-		tud_task();						\
+		upstream_tx_str(__p, __str);				\
+		upstream_ops->flush();					\
 	} while(0)
 
 #define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))

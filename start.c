@@ -101,7 +101,7 @@ static void __not_in_flash_func(uart_irq_fn)(int port,
 {
 	while (uart_is_readable(hw->uart)) {
 		char c = uart_getc(hw->uart);
-		usb_tx_bytes(port, &c, 1);
+		upstream_ops->tx_bytes(port, &c, 1);
 	}
 }
 
@@ -178,7 +178,7 @@ static void m1_pd_bmc_system_init(const struct hw_context *hw)
 		m1_pd_bmc_gpio_setup_one(&hw->pins[i]);
 }
 
-void usb_tx_bytes(int32_t port, const char *ptr, int len)
+static void usb_tx_bytes(int32_t port, const char *ptr, int len)
 {
         if (!tud_cdc_n_connected(port))
 		return;
@@ -200,26 +200,7 @@ void usb_tx_bytes(int32_t port, const char *ptr, int len)
         }
 }
 
-void usb_tx_str(int32_t port, char *str)
-{
-	do {
-		char *cursor = str;
-
-		while (*cursor && *cursor != '\n')
-			cursor++;
-
-		usb_tx_bytes(port, str, cursor - str);
-
-		if (!*cursor)
-			return;
-
-		usb_tx_bytes(port, "\n\r", 2);
-
-		str = cursor + 1;
-	} while (*str);
-}
-
-int32_t usb_rx_byte(int32_t port)
+static int32_t usb_rx_byte(int32_t port)
 {
 	uint8_t c;
 
@@ -230,10 +211,39 @@ int32_t usb_rx_byte(int32_t port)
 	return c;
 }
 
+static const struct upstream_ops usb_upstream_ops = {
+	.tx_bytes	= usb_tx_bytes,
+	.rx_byte	= usb_rx_byte,
+	.flush		= tud_task,
+};
+
+const struct upstream_ops *upstream_ops;
+
+void upstream_tx_str(int32_t port, const char *str)
+{
+	do {
+		const char *cursor = str;
+
+		while (*cursor && *cursor != '\n')
+			cursor++;
+
+		upstream_ops->tx_bytes(port, str, cursor - str);
+
+		if (!*cursor)
+			return;
+
+		upstream_ops->tx_bytes(port, "\n\r", 2);
+
+		str = cursor + 1;
+	} while (*str);
+}
+
 int main(void)
 {
 	bool success;
 	int port;
+
+	upstream_ops = &usb_upstream_ops;
 
 	success = set_sys_clock_khz(133000, false);
 

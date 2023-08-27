@@ -517,7 +517,7 @@ static bool serial_handler(struct vdm_context *cxt)
 	bool uart_active = false;
 	int32_t c;
 
-	while ((c = usb_rx_byte(PORT(cxt))) != -1) {
+	while ((c = upstream_ops->rx_byte(PORT(cxt))) != -1) {
 		uart_active = true;
 
 		if ((!cxt->vdm_escape && c != 0x1f)) {
@@ -742,7 +742,7 @@ void m1_pd_bmc_run(void)
 			irq_set_enabled(cxt->hw->uart_irq, false);
 		}
 
-		tud_task();
+		upstream_ops->flush();
 
 		for_each_cxt(cxt)
 			irq_set_enabled(cxt->hw->uart_irq, true);
