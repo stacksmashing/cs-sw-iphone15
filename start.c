@@ -96,6 +96,16 @@ static const struct gpio_pin_config m1_pd_bmc_pin_config1[] = {
 	},
 };
 
+static struct {
+	/*
+	 * we rely on prod/cons rollover behaviour, and buf must cover
+	 * the full range of prod/cons.
+	 */
+	uint8_t		prod;
+	uint8_t		cons;
+	char		buf[256];
+} uart1_buf;
+
 static void __not_in_flash_func(uart_irq_fn)(int port,
 					     const struct hw_context *hw)
 {
@@ -135,7 +145,18 @@ static void __not_in_flash_func(uart0_irq_fn)(void)
 
 static void __not_in_flash_func(uart1_irq_fn)(void)
 {
-	uart_irq_fn(1, &hw1);
+	if (!upstream_is_serial()) {
+		uart_irq_fn(1, &hw1);
+		return;
+	}
+
+	while (uart_is_readable(uart1)) {
+		uart1_buf.buf[uart1_buf.prod++] = uart_getc(uart1);
+
+		/* Oops, we're losing data... */
+		if (uart1_buf.prod == uart1_buf.cons)
+			uart1_buf.cons++;
+	}
 }
 
 static void init_system(const struct hw_context *hw)
@@ -217,6 +238,41 @@ static const struct upstream_ops usb_upstream_ops = {
 	.flush		= tud_task,
 };
 
+static void serial1_tx_bytes(int32_t port, const char *ptr, int len)
+{
+	uart_write_blocking(uart1, ptr, len);
+}
+
+static int32_t serial1_rx_byte(int32_t port)
+{
+	uint32_t status;
+	int32_t val;
+
+	tud_task();
+	val = usb_rx_byte(port);
+	if (val != -1)
+		return val;
+
+	status = save_and_disable_interrupts();
+
+	if (uart1_buf.prod == uart1_buf.cons)
+		val = -1;
+	else
+		val = uart1_buf.buf[uart1_buf.cons++];
+
+	restore_interrupts(status);
+
+	return val;
+}
+
+static void serial1_flush(void) {}
+
+static const struct upstream_ops serial1_upstream_ops = {
+	.tx_bytes	= serial1_tx_bytes,
+	.rx_byte	= serial1_rx_byte,
+	.flush		= serial1_flush,
+};
+
 const struct upstream_ops *upstream_ops;
 
 void upstream_tx_str(int32_t port, const char *str)
@@ -238,12 +294,28 @@ void upstream_tx_str(int32_t port, const char *str)
 	} while (*str);
 }
 
+void set_upstream_ops(bool serial)
+{
+	if (serial) {
+		upstream_ops = &serial1_upstream_ops;
+	} else {
+		upstream_ops = &usb_upstream_ops;
+	}
+
+	__dsb();
+}
+
+bool upstream_is_serial(void)
+{
+	return upstream_ops == &serial1_upstream_ops;
+}
+
 int main(void)
 {
 	bool success;
 	int port;
 
-	upstream_ops = &usb_upstream_ops;
+	set_upstream_ops(false);
 
 	success = set_sys_clock_khz(133000, false);
 

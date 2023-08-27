@@ -52,6 +52,8 @@ struct upstream_ops {
 };
 
 extern const struct upstream_ops *upstream_ops;
+void set_upstream_ops(bool serial);
+bool upstream_is_serial(void);
 
 void upstream_tx_str(int32_t port, const char *ptr);
 

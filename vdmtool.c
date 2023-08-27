@@ -474,8 +474,14 @@ static void help(struct vdm_context *cxt)
 		"^_ ^D Toggle debug\n"
 		"^_ ^M Send empty debug VDM\n"
 		"^_ 1  Serial on Primary USB pins\n"
-		"^_ 2  Serial on SBU pins\n"
-		"^_ ?  This message\n");
+		"^_ 2  Serial on SBU pins\n");
+
+	if (upstream_is_serial())
+		cprintf_cont(cxt, "^_ ^@  Send break\n");
+	if (PORT(cxt) == 0 && !vdm_contexts[1].hw)
+		cprintf_cont(cxt, "^_ ^U  Switch upstream port USB/Serial\n");
+	cprintf_cont(cxt, "^_ ?  This message\n");
+
 	for (int i = 0; i < CONFIG_USB_PD_PORT_COUNT; i++) {
 		struct vdm_context *tmp = &vdm_contexts[i];
 
@@ -483,9 +489,10 @@ static void help(struct vdm_context *cxt)
 			PORT(tmp),
 			tmp->hw ? "present" : "absent");
 		if (tmp->hw)
-			cprintf_cont(cxt, ",cc%d,%s%s",
+			cprintf_cont(cxt, ",cc%d,%s,%s%s",
 				     tmp->cc_line + 1,
 				     pinsets[tmp->serial_pin_set],
+				     upstream_is_serial() ? "serial" : "USB",
 				     tmp->verbose ? ",debug" : "");
 		cprintf_cont(cxt, "\n");
 	}
@@ -547,12 +554,26 @@ static bool serial_handler(struct vdm_context *cxt)
 			cxt->verbose = !cxt->verbose;
 			cprintf(cxt, "Debug o%s\n", cxt->verbose ? "n" : "ff");
 			break;
+		case 0:				/* ^@ */
+			tud_cdc_send_break_cb(PORT(cxt), 100);
+			break;
 		case '\r':			/* Enter */
 			debug_poke(cxt);
 			break;
 		case '1' ... '2':
 			cxt->serial_pin_set = c - '0';
 			vdm_pd_reset(cxt);
+			break;
+		case 0x15:     			/* ^U */
+			/* We can't do that if port 1 exists */
+			if (PORT(cxt) != 0 || vdm_contexts[1].hw)
+				break;
+
+			cprintf(cxt, "Upstream switching to %s\n",
+				!upstream_is_serial() ? "serial" : "USB");
+			set_upstream_ops(!upstream_is_serial());
+			cprintf(cxt, "Upstream is %s\n",
+				upstream_is_serial() ? "serial" : "USB");
 			break;
 		case 0x18:			/* ^X */
 			cxt->pending = true;
