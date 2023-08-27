@@ -29,7 +29,9 @@ enum m1_pd_bmc_pins {
 	UART_RX,
 	SBU_SWAP,
 	SEL_USB,
-	M1_BMC_PIN_END = SEL_USB,
+	LED_R_TX,
+	LED_R_RX,
+	M1_BMC_PIN_END = LED_R_RX,
 };
 
 struct hw_context {

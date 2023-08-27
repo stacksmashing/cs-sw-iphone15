@@ -54,6 +54,25 @@ static const struct gpio_pin_config m1_pd_bmc_pin_config0[] = {
 	},
 };
 
+static const struct gpio_pin_config waveshare_2ch_rs232_config0[] = {
+	[M1_BMC_PIN_START ... M1_BMC_PIN_END] = {
+		.skip	= true,
+	},
+	/* Prevent the unused leds from drawing much curent */
+	[LED_R_TX] = {
+		.pin	= 0,
+		.mode	= GPIO_FUNC_SIO,
+		.dir	= GPIO_IN,
+		.pu	= true,
+	},
+	[LED_R_RX] = {
+		.pin	= 1,
+		.mode	= GPIO_FUNC_SIO,
+		.dir	= GPIO_IN,
+		.pu	= true,
+	},
+};
+
 static const struct gpio_pin_config m1_pd_bmc_pin_config1[] = {
 	[M1_BMC_PIN_START ... M1_BMC_PIN_END] = {
 		.skip	= true,
@@ -99,6 +118,20 @@ static const struct gpio_pin_config m1_pd_bmc_pin_config1[] = {
 		.pin	= 6,
 		.mode	= GPIO_FUNC_SIO,
 		.dir	= GPIO_OUT,
+	},
+};
+
+static const struct gpio_pin_config waveshare_2ch_rs232_config1[] = {
+	[M1_BMC_PIN_START ... M1_BMC_PIN_END] = {
+		.skip	= true,
+	},
+	[UART_TX] = {		/* UART1 */
+		.pin	= 4,
+		.mode	= GPIO_FUNC_UART,
+	},
+	[UART_RX] = {		/* UART1 */
+		.pin	= 5,
+		.mode	= GPIO_FUNC_UART,
 	},
 };
 
@@ -203,6 +236,26 @@ static void m1_pd_bmc_system_init(const struct hw_context *hw)
 
 	for (unsigned int i = 0; i < hw->nr_pins; i++)
 		m1_pd_bmc_gpio_setup_one(&hw->pins[i]);
+}
+
+static bool apply_waveshare_2ch_rs232_overrides(void)
+{
+	/*
+	 * Hack: check for PUPs on 0/1, and assumes this is a dual
+	 * RS232 board plugged in. Ideally, we'd also check UART1 on
+	 * 4/5, but this looks unreliable. If this gets in the way,
+	 * turn it into a compilation option instead.
+	 */
+	if (!(gpio_get(waveshare_2ch_rs232_config0[LED_R_TX].pin) &&
+	      gpio_get(waveshare_2ch_rs232_config0[LED_R_RX].pin)))
+		return false;
+
+	for (int i = 0; i < ARRAY_SIZE(waveshare_2ch_rs232_config0); i++)
+		m1_pd_bmc_gpio_setup_one(&waveshare_2ch_rs232_config0[i]);
+	for (int i = 0; i < ARRAY_SIZE(waveshare_2ch_rs232_config1); i++)
+		m1_pd_bmc_gpio_setup_one(&waveshare_2ch_rs232_config1[i]);
+
+	return true;
 }
 
 static void usb_tx_bytes(int32_t port, const char *ptr, int len)
@@ -352,6 +405,9 @@ int main(void)
 
 	if (!success)
 		__printf(port, "WARNING: Nominal frequency NOT reached\n");
+
+	if (apply_waveshare_2ch_rs232_overrides())
+		__printf(port, "Detected Waveshare 2CH RS232, switching UART1\n");
 
 	m1_pd_bmc_fusb_setup(0, &hw0);
 	m1_pd_bmc_fusb_setup(1, &hw1);
