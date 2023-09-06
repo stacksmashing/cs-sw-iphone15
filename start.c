@@ -369,6 +369,24 @@ bool upstream_is_serial(void)
 	return upstream_ops == &serial1_upstream_ops;
 }
 
+static int wait_for_usb_connection(void)
+{
+	do {
+		static bool state = false;
+		static int cnt = 0;
+
+		tud_task();
+		gpio_put(hw0.pins[LED_G].pin, state);
+		sleep_ms(1);
+		cnt++;
+		cnt %= 256;
+		if (!cnt)
+			state = !state;
+	} while (!tud_cdc_n_connected(0) && !tud_cdc_n_connected(1));
+
+	return !tud_cdc_n_connected(0);
+}
+
 int main(void)
 {
 	bool success;
@@ -384,20 +402,13 @@ int main(void)
 	m1_pd_bmc_system_init(&hw0);
 	m1_pd_bmc_system_init(&hw1);
 
-	do {
-		static bool state = false;
-		static int cnt = 0;
-
-		tud_task();
-		gpio_put(hw0.pins[LED_G].pin, state);
-		sleep_ms(1);
-		cnt++;
-		cnt %= 256;
-		if (!cnt)
-			state = !state;
-	} while (!tud_cdc_n_connected(0) && !tud_cdc_n_connected(1));
-
-	port = !tud_cdc_n_connected(0);
+	if (apply_waveshare_2ch_rs232_overrides()) {
+		set_upstream_ops(true);
+		port = 0;
+		__printf(port, "Detected Waveshare 2CH RS232, switching UART1\n");
+	} else {
+		port = wait_for_usb_connection();
+	}
 
 	__printf(port, "This is the Central Scrutinizer\n");
 	__printf(port, "Control character is ^_\n");
@@ -406,11 +417,9 @@ int main(void)
 	if (!success)
 		__printf(port, "WARNING: Nominal frequency NOT reached\n");
 
-	if (apply_waveshare_2ch_rs232_overrides())
-		__printf(port, "Detected Waveshare 2CH RS232, switching UART1\n");
-
 	m1_pd_bmc_fusb_setup(0, &hw0);
-	m1_pd_bmc_fusb_setup(1, &hw1);
+	if (!upstream_is_serial())
+		m1_pd_bmc_fusb_setup(1, &hw1);
 
 	m1_pd_bmc_run();
 }
