@@ -598,7 +598,7 @@ static void state_machine(struct vdm_context *cxt)
 		fusb302_tcpm_get_cc(PORT(cxt), &cc1, &cc2);
 		dprintf(cxt, "Poll: cc1=%d  cc2=%d\n", (int)cc1, (int)cc2);
 		if (cc1 >= 2 || cc2 >= 2) {
-			sleep_ms(200);
+			sleep_ms(500);
 			evt_dfpconnect(cxt);
 		} else {
 			vbus_off(cxt);
@@ -707,12 +707,14 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 	vbus_off(cxt);
 
 	tcpc_read(PORT(cxt), TCPC_REG_DEVICE_ID, &reg);
-	cprintf(cxt, "Device ID: 0x%x\n", reg);
 	if (!(reg & 0x80)) {
 		cprintf(cxt, "Invalid device ID. Is the FUSB302 alive?\n");
 		cxt->hw = NULL;
 		return;
 	}
+
+	cprintf(cxt, "Device ID: %c_rev%c (0x%x)\n",
+		'A' + ((reg >> 4) & 0x7), 'A' + (reg & 3), reg);
 
 	cprintf(cxt, "Init\n");
 	fusb302_tcpm_init(PORT(cxt));
