@@ -33,6 +33,7 @@ struct vdm_context {
 	bool				vdm_escape;
 	bool				cc_line;
 	uint8_t				serial_pin_set;
+	uint8_t				version;
 };
 
 static struct vdm_context vdm_contexts[CONFIG_USB_PD_PORT_COUNT];
@@ -87,16 +88,16 @@ void debug_poke(struct vdm_context *cxt)
 	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP_DEBUG_PRIME_PRIME, hdr, &x);
 }
 
-static void evt_dfpconnect(struct vdm_context *cxt)
+static void evt_dfpconnect(struct vdm_context *cxt, int16_t cc1, int16_t cc2)
 {
-	int16_t cc1 = -1, cc2 = -1;
-	fusb302_tcpm_get_cc(PORT(cxt), &cc1, &cc2);
-	cprintf(cxt, "Connected: cc1=%d cc2=%d\n", cc1, cc2);
-	if (cc1 < 2 && cc2 < 2) {
-		cprintf(cxt, "Nope.\n");
-		return;
-	}
+	int ms = 200;
 
+	cprintf(cxt, "Connected: cc1=%d cc2=%d\n", cc1, cc2);
+
+	/* The original FUSB302 needs a bit longer... */
+	if ((cxt->version & 0xf0) < 0x90)
+		ms += 300;
+	sleep_ms(ms);
 	fusb302_tcpm_set_vconn(PORT(cxt), 0);
 
 	fusb302_pd_reset(PORT(cxt));
@@ -598,8 +599,7 @@ static void state_machine(struct vdm_context *cxt)
 		fusb302_tcpm_get_cc(PORT(cxt), &cc1, &cc2);
 		dprintf(cxt, "Poll: cc1=%d  cc2=%d\n", (int)cc1, (int)cc2);
 		if (cc1 >= 2 || cc2 >= 2) {
-			sleep_ms(500);
-			evt_dfpconnect(cxt);
+			evt_dfpconnect(cxt, cc1, cc2);
 		} else {
 			vbus_off(cxt);
 		}
@@ -715,6 +715,8 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 
 	cprintf(cxt, "Device ID: %c_rev%c (0x%x)\n",
 		'A' + ((reg >> 4) & 0x7), 'A' + (reg & 3), reg);
+
+	cxt->version = reg & 0xff;
 
 	cprintf(cxt, "Init\n");
 	fusb302_tcpm_init(PORT(cxt));
