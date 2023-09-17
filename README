@@ -247,6 +247,6 @@ which is completely self explainatory, but let's expand on it anyway:
 
 Finally, the Port 0:/1: lines indicate which I2C/UART combinations the
 board is using, as well as the CC line used, the pin set used for
-serial, and potentially the deug status. The HW supports two boards
-being driven by a single Pico, but it is very unlikely you have built
-such a configuration.
+serial, and potentially the debug status. The HW supports two boards
+being driven by a single Pico (see the HW documentation for the gory
+details).
