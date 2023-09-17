@@ -25,6 +25,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -funsigned-char)
+
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
 

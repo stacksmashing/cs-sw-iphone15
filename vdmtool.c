@@ -50,7 +50,7 @@ static struct vdm_context vdm_contexts[CONFIG_USB_PD_PORT_COUNT];
 
 #define cprintf(cxt, str, ...)	do {					\
 		cprintf_cont(cxt,					\
-			     "P%ld: " str, PORT(cxt), ##__VA_ARGS__);	\
+			     "P%d: " str, PORT(cxt), ##__VA_ARGS__);	\
 	} while(0)
 
 #define dprintf(cxt, ...)	do {					\
@@ -195,7 +195,7 @@ static void dump_msg(struct vdm_context *cxt,
 
 	cprintf_cont(cxt, "%d) [%x]", len, hdr);
 	for (int16_t i = 0; i < PD_HEADER_CNT(hdr); i++)
-		cprintf_cont(cxt, " %x", msg[i]);
+		cprintf_cont(cxt, " %lx", msg[i]);
 
 	cprintf_cont(cxt, "\n");
 }
@@ -275,11 +275,11 @@ static void handle_msg(struct vdm_context *cxt, enum fusb302_rxfifo_tokens sop,
 	if (len != 0) {
 		switch (type) {
 		case PD_DATA_SOURCE_CAP:
-			cprintf(cxt, "<SOURCE_CAP: %x\n", msg[0]);
+			cprintf(cxt, "<SOURCE_CAP: %lx\n", msg[0]);
 			send_power_request(cxt, msg[0]);
 			break;
 		case PD_DATA_REQUEST:
-			cprintf(cxt, "<REQUEST: %x\n", msg[0]);
+			cprintf(cxt, "<REQUEST: %lx\n", msg[0]);
 			handle_power_request(cxt, msg[0]);
 			break;
 		case PD_DATA_VENDOR_DEF:
@@ -323,7 +323,7 @@ static void handle_msg(struct vdm_context *cxt, enum fusb302_rxfifo_tokens sop,
 
 static void evt_packet(struct vdm_context *cxt)
 {
-	int16_t hdr, len, ret;
+	int16_t hdr, ret;
 	enum fusb302_rxfifo_tokens sop;
 	uint32_t msg[16];
 
@@ -730,8 +730,6 @@ static bool m1_pd_bmc_run_one(struct vdm_context *cxt)
 
 void m1_pd_bmc_run(void)
 {
-	int i;
-
 	while (1) {
 		bool busy = false;
 

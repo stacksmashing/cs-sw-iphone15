@@ -69,9 +69,8 @@ int16_t tcpc_xfer(int16_t port,
 	const struct hw_context *fusb = get_hw_from_port(port);
 
 	if (out_size) {
-		int err;
-		err = i2c_write_blocking(fusb->i2c, fusb->addr, out, out_size,
-					 !(flags & I2C_XFER_STOP));
+		i2c_write_blocking(fusb->i2c, fusb->addr, out, out_size,
+				   !(flags & I2C_XFER_STOP));
 	}
 
 	if (in_size) {

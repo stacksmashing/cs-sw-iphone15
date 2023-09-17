@@ -149,7 +149,7 @@ static void __not_in_flash_func(uart_irq_fn)(int port,
 					     const struct hw_context *hw)
 {
 	while (uart_is_readable(hw->uart)) {
-		char c = uart_getc(hw->uart);
+		const char c = uart_getc(hw->uart);
 		upstream_ops->tx_bytes(port, &c, 1);
 	}
 }
@@ -299,7 +299,7 @@ static const struct upstream_ops usb_upstream_ops = {
 
 static void serial1_tx_bytes(int32_t port, const char *ptr, int len)
 {
-	uart_write_blocking(uart1, ptr, len);
+	uart_write_blocking(uart1, (const uint8_t *)ptr, len);
 }
 
 static int32_t serial1_rx_byte(int32_t port)
