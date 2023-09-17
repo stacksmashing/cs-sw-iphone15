@@ -14,7 +14,6 @@
 enum state {
 	STATE_INVALID = -1,
 	STATE_DISCONNECTED = 0,
-	STATE_CONNECTED,
 	STATE_READY,
 	STATE_DFP_VBUS_ON,
 	STATE_DFP_CONNECTED,
@@ -118,28 +117,6 @@ static void evt_dfpconnect(struct vdm_context *cxt, int16_t cc1, int16_t cc2)
 	STATE(cxt, DFP_VBUS_ON);
 
 	debug_poke(cxt);
-}
-
-static void evt_connect(struct vdm_context *cxt)
-{
-	int16_t cc1 = -1, cc2 = -1;
-	fusb302_tcpm_get_cc(PORT(cxt), &cc1, &cc2);
-	cprintf(cxt, "Connected: cc1=%d cc2=%d\n", cc1, cc2);
-	if (cc1 < 2 && cc2 < 2) {
-		cprintf(cxt, "Nope.\n");
-		return;
-	}
-	fusb302_pd_reset(PORT(cxt));
-	fusb302_tcpm_set_msg_header(PORT(cxt), 0, 0);	// Sink
-	if (cc1 > cc2) {
-		fusb302_tcpm_set_polarity(PORT(cxt), 0);
-		cprintf(cxt, "Polarity: CC1 (normal)\n");
-	} else {
-		fusb302_tcpm_set_polarity(PORT(cxt), 1);
-		cprintf(cxt, "Polarity: CC2 (flipped)\n");
-	}
-	fusb302_tcpm_set_rx_enable(PORT(cxt), 1);
-	STATE(cxt, CONNECTED);
 }
 
 static void evt_disconnect(struct vdm_context *cxt)
@@ -603,9 +580,6 @@ static void state_machine(struct vdm_context *cxt)
 		} else {
 			vbus_off(cxt);
 		}
-		break;
-	}
-	case STATE_CONNECTED:{
 		break;
 	}
 	case STATE_DFP_VBUS_ON:{
