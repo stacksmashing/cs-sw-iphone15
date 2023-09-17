@@ -126,7 +126,12 @@ Models I know of:
 - M2 MacBook Air 2022: USB-C port closest to the MagSafe port
 - M2 Pro mini 2023: USB-C port closest to the Ethernet port (Oliver)
 
-No idea about other machines.
+Apple documents the correct port in their "Revive or restore a Mac
+using Apple Configurator":
+https://support.apple.com/guide/apple-configurator-mac/revive-or-restore-a-mac-with-apple-silicon-apdd5f3c75ad/mac
+
+On desktop devices it is usually the port closest to the power supply.
+On laptops it is the USB-C port on the back left side.
 
 Optionally, you can make use of the micro-USB connector that is on
 the other side of the board. It's main use it to allow interacting
