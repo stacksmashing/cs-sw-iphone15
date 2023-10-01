@@ -68,12 +68,12 @@ static void vbus_off(struct vdm_context *cxt)
 	gpio_put(PIN(cxt, FUSB_VBUS), LOW);
 	sleep_ms(800);
 	gpio_set_dir(PIN(cxt, FUSB_VBUS), GPIO_IN);
-	cprintf(cxt, "VBUS OFF\n");
+	cprintf(cxt, "Turning VBUS OFF\n");
 }
 
 static void vbus_on(struct vdm_context *cxt)
 {
-	cprintf(cxt, "VBUS ON\n");
+	cprintf(cxt, "Turning VBUS ON\n");
 	gpio_set_dir(PIN(cxt, FUSB_VBUS), GPIO_OUT);
 	gpio_put(PIN(cxt, FUSB_VBUS), HIGH);
 }
@@ -137,8 +137,8 @@ static void send_power_request(struct vdm_context *cxt, uint32_t cap)
 	uint32_t req =
 		(1L << 28) | // Object position (fixed 5V)
 		(1L << 25) | // USB communications capable
-		(0L << 10) | // 0mA operating
-		(0L << 0);   // 0mA max
+		(4L << 10) | // Random mA operating
+		(4L << 0);   // Random mA max
 
 	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP, hdr, &req);
 	cprintf(cxt, ">REQUEST\n");
@@ -387,6 +387,11 @@ static void handle_irq(struct vdm_context *cxt)
 
 static void vdm_send_msg(struct vdm_context *cxt, const uint32_t *vdm, int nr_u32)
 {
+	cprintf(cxt, "Sending: ");
+	for(int i=0; i < nr_u32; i++) {
+		cprintf(cxt, "0x%08X ", vdm[i]);
+	}
+	cprintf(cxt, "\n");
 	int16_t hdr = PD_HEADER(PD_DATA_VENDOR_DEF, 1, 1, 0, nr_u32, PD_REV20, 0);
 	fusb302_tcpm_transmit(PORT(cxt), TCPC_TX_SOP_DEBUG_PRIME_PRIME, hdr, vdm);
 }
@@ -411,8 +416,8 @@ static void vdm_claim_serial(struct vdm_context *cxt)
 	//uint32_t vdm[] = { 0x5ac8011, 0x0809  }; // Get Action List
 	//uint32_t vdm[] = { 0x5ac8012, 0x0105, 0x8000<<16 };
 
-	// VDM to mux debug UART over some set of pin...
-	uint32_t vdm[] = { 0x5AC8012, 0x01800306 };
+	// Maybe SWD?
+	uint32_t vdm[] = { 0x5AC8012, 0x01800206 };
 
 	vdm[1] |= 1 << (cxt->serial_pin_set + 16);
 
@@ -584,6 +589,7 @@ static void state_machine(struct vdm_context *cxt)
 	}
 	case STATE_DFP_VBUS_ON:{
 		if (++cxt->source_cap_timer > 37) {
+			cprintf(cxt, "Sourcecap timer expired\n");
 			send_source_cap(cxt);
 			debug_poke(cxt);
 		}
@@ -658,7 +664,7 @@ void m1_pd_bmc_fusb_setup(unsigned int port,
 		.state 			= STATE_DISCONNECTED,
 		.source_cap_timer	= 0,
 		.cc_debounce		= 0,
-		.verbose		= false,
+		.verbose		= true,
 		.vdm_escape		= false,
 		.serial_pin_set		= 2, /* SBU1/2 */
 	};

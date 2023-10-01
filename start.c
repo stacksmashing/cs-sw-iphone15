@@ -418,8 +418,9 @@ int main(void)
 		__printf(port, "WARNING: Nominal frequency NOT reached\n");
 
 	m1_pd_bmc_fusb_setup(0, &hw0);
-	if (!upstream_is_serial())
+	if (!upstream_is_serial()) {
 		m1_pd_bmc_fusb_setup(1, &hw1);
+	}
 
 	m1_pd_bmc_run();
 }
